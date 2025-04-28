@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Balance Logger - Data Overview</title>
+  <title>Balance Logger Files</title>
   <style>
     body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 2rem; color: #333; }
     h1 { font-size: 2rem; color: #2c3e50; }
@@ -11,83 +11,86 @@
     th, td { border: 1px solid #ccc; padding: 0.8rem; text-align: left; }
     th { background: #3498db; color: white; }
     tr:nth-child(even) { background: #f2f2f2; }
-    a { color: #2980b9; text-decoration: none; }
-    a:hover { text-decoration: underline; }
+    a.button { background: #3498db; color: white; padding: 6px 12px; text-decoration: none; border-radius: 4px; }
+    a.button:hover { background: #2980b9; }
   </style>
 </head>
 <body>
-  <h1>Balance Logger - Available Datasets</h1>
-  <table id="csv-table">
+  <h1>Available Balance Logger CSV Files</h1>
+
+  <table id="file-list">
     <thead>
       <tr>
-        <th>CSV File</th>
-        <th>Last Data Point</th>
+        <th>File Name</th>
+        <th>Last Updated</th>
+        <th>Download</th>
       </tr>
     </thead>
-    <tbody id="csv-list">
-      <!-- Dynamically filled -->
+    <tbody>
+      <!-- Files will be inserted here dynamically -->
     </tbody>
   </table>
 
   <script>
-    const dataFolderUrl = 'https://raw.githubusercontent.com/chrmccar/balance-logger/master/data/';
-    const fileList = [
-      "test.csv",
-      "test_run.csv",
-      "t.csv"
-    ];
+    const repo = "chrmccar/balance-logger";
+    const branch = "master";
+    const dataFolderUrl = `https://api.github.com/repos/${repo}/contents/data`;
 
-    async function fetchLastTimestamp(file) {
-      try {
-        const response = await fetch(dataFolderUrl + file);
-        const text = await response.text();
-        const lines = text.trim().split('\n');
-        const lastLine = lines[lines.length - 1];
-        const columns = lastLine.split(',');
-        const timestamp = columns[0]; // Assume first column is timestamp
-        return timestamp;
-      } catch (err) {
-        return null;
-      }
-    }
+    fetch(dataFolderUrl)
+      .then(response => response.json())
+      .then(files => {
+        const table = document.getElementById('file-list').querySelector('tbody');
 
-    function timeAgo(timestamp) {
-      try {
-        const then = new Date(timestamp);
-        const now = new Date();
-        const diffMs = now - then;
-        const diffHours = diffMs / (1000 * 60 * 60);
+        files.forEach(file => {
+          if (file.name.endsWith('.csv')) {
+            const row = document.createElement('tr');
 
-        if (diffHours > 24) {
-          return "> 24 hours ago";
-        } else if (diffHours > 1) {
-          return `${Math.floor(diffHours)} hours ago`;
-        } else {
-          const diffMinutes = diffMs / (1000 * 60);
-          return `${Math.floor(diffMinutes)} minutes ago`;
-        }
-      } catch {
-        return "Unknown";
-      }
-    }
+            const nameCell = document.createElement('td');
+            const link = document.createElement('a');
+            link.href = `view.html?file=${encodeURIComponent(file.name)}`;
+            link.textContent = file.name;
+            nameCell.appendChild(link);
+            row.appendChild(nameCell);
 
-    async function populateTable() {
-      const table = document.getElementById('csv-list');
+            const timeCell = document.createElement('td');
+            const updatedAt = new Date(file.git_url ? file.git_url.split('commits/')[1] : file.sha);  // fallback
+            const now = new Date();
+            const diff = (now - new Date(file.last_modified || file.git_url || now)) / 1000;
 
-      for (const file of fileList) {
-        const lastTimestamp = await fetchLastTimestamp(file);
-        const timeText = lastTimestamp ? timeAgo(lastTimestamp) : "Unknown";
+            if (diff > 24 * 3600) {
+              timeCell.textContent = ">24 hours ago";
+            } else if (diff > 3600) {
+              timeCell.textContent = `${Math.floor(diff/3600)} hours ago`;
+            } else if (diff > 60) {
+              timeCell.textContent = `${Math.floor(diff/60)} minutes ago`;
+            } else {
+              timeCell.textContent = `${Math.floor(diff)} seconds ago`;
+            }
+            row.appendChild(timeCell);
 
+            const downloadCell = document.createElement('td');
+            const downloadLink = document.createElement('a');
+            downloadLink.href = `https://raw.githubusercontent.com/${repo}/${branch}/data/${file.name}`;
+            downloadLink.className = "button";
+            downloadLink.download = file.name;
+            downloadLink.textContent = "Download";
+            downloadCell.appendChild(downloadLink);
+            row.appendChild(downloadCell);
+
+            table.appendChild(row);
+          }
+        });
+      })
+      .catch(err => {
+        const table = document.getElementById('file-list').querySelector('tbody');
         const row = document.createElement('tr');
-        row.innerHTML = `
-          <td><a href="view.html?file=${encodeURIComponent(file)}">${file}</a></td>
-          <td>${timeText}</td>
-        `;
+        const cell = document.createElement('td');
+        cell.colSpan = 3;
+        cell.textContent = "Error loading file list.";
+        row.appendChild(cell);
         table.appendChild(row);
-      }
-    }
-
-    populateTable();
+      });
   </script>
+
 </body>
 </html>
