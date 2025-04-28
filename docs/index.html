@@ -22,7 +22,7 @@
     <thead>
       <tr>
         <th>File Name</th>
-        <th>Last Updated</th>
+        <th>Last Data Point</th>
         <th>Download</th>
       </tr>
     </thead>
@@ -35,35 +35,57 @@
     const repo = "chrmccar/balance-logger";
     const dataFolderUrl = `https://api.github.com/repos/${repo}/contents/data`;
 
+    function timeSince(date) {
+      const now = new Date();
+      const seconds = Math.floor((now - date) / 1000);
+
+      if (seconds < 60) return `${seconds} seconds ago`;
+      const minutes = Math.floor(seconds / 60);
+      if (minutes < 60) return `${minutes} minutes ago`;
+      const hours = Math.floor(minutes / 60);
+      if (hours < 24) return `${hours} hours ago`;
+      return `>24 hours ago`;
+    }
+
     fetch(dataFolderUrl)
       .then(response => response.json())
       .then(files => {
         const tableBody = document.getElementById('file-list').querySelector('tbody');
         files.forEach(file => {
           if (file.name.endsWith('.csv')) {
-            const row = document.createElement('tr');
+            fetch(file.download_url)
+              .then(response => response.text())
+              .then(text => {
+                const rows = text.trim().split('\n');
+                const lastRow = rows[rows.length - 1].split(',');
+                const lastTimestampRaw = lastRow[0].replace(' ', 'T'); // Fix the format
+                const lastDate = new Date(lastTimestampRaw);
+                const timeAgo = isNaN(lastDate) ? "Invalid date" : timeSince(lastDate);
 
-            const nameCell = document.createElement('td');
-            const link = document.createElement('a');
-            link.href = `view.html?file=${encodeURIComponent(file.name)}`;
-            link.textContent = file.name;
-            nameCell.appendChild(link);
-            row.appendChild(nameCell);
+                const row = document.createElement('tr');
 
-            const timeCell = document.createElement('td');
-            timeCell.textContent = ">24 hours ago"; // Simple for now
-            row.appendChild(timeCell);
+                const nameCell = document.createElement('td');
+                const link = document.createElement('a');
+                link.href = `view.html?file=${encodeURIComponent(file.name)}`;
+                link.textContent = file.name;
+                nameCell.appendChild(link);
+                row.appendChild(nameCell);
 
-            const downloadCell = document.createElement('td');
-            const downloadLink = document.createElement('a');
-            downloadLink.href = file.download_url;
-            downloadLink.className = "button";
-            downloadLink.download = file.name;
-            downloadLink.textContent = "Download";
-            downloadCell.appendChild(downloadLink);
-            row.appendChild(downloadCell);
+                const timeCell = document.createElement('td');
+                timeCell.textContent = timeAgo;
+                row.appendChild(timeCell);
 
-            tableBody.appendChild(row);
+                const downloadCell = document.createElement('td');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = file.download_url;
+                downloadLink.className = "button";
+                downloadLink.download = file.name;
+                downloadLink.textContent = "Download";
+                downloadCell.appendChild(downloadLink);
+                row.appendChild(downloadCell);
+
+                tableBody.appendChild(row);
+              });
           }
         });
       })
