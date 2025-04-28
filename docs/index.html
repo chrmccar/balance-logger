@@ -33,14 +33,12 @@
 
   <script>
     const repo = "chrmccar/balance-logger";
-    const branch = "master";
     const dataFolderUrl = `https://api.github.com/repos/${repo}/contents/data`;
 
     fetch(dataFolderUrl)
       .then(response => response.json())
       .then(files => {
-        const table = document.getElementById('file-list').querySelector('tbody');
-
+        const tableBody = document.getElementById('file-list').querySelector('tbody');
         files.forEach(file => {
           if (file.name.endsWith('.csv')) {
             const row = document.createElement('tr');
@@ -53,44 +51,25 @@
             row.appendChild(nameCell);
 
             const timeCell = document.createElement('td');
-            const updatedAt = new Date(file.git_url ? file.git_url.split('commits/')[1] : file.sha);  // fallback
-            const now = new Date();
-            const diff = (now - new Date(file.last_modified || file.git_url || now)) / 1000;
-
-            if (diff > 24 * 3600) {
-              timeCell.textContent = ">24 hours ago";
-            } else if (diff > 3600) {
-              timeCell.textContent = `${Math.floor(diff/3600)} hours ago`;
-            } else if (diff > 60) {
-              timeCell.textContent = `${Math.floor(diff/60)} minutes ago`;
-            } else {
-              timeCell.textContent = `${Math.floor(diff)} seconds ago`;
-            }
+            timeCell.textContent = ">24 hours ago"; // Simple for now
             row.appendChild(timeCell);
 
             const downloadCell = document.createElement('td');
             const downloadLink = document.createElement('a');
-            downloadLink.href = `https://raw.githubusercontent.com/${repo}/${branch}/data/${file.name}`;
+            downloadLink.href = file.download_url;
             downloadLink.className = "button";
             downloadLink.download = file.name;
             downloadLink.textContent = "Download";
             downloadCell.appendChild(downloadLink);
             row.appendChild(downloadCell);
 
-            table.appendChild(row);
+            tableBody.appendChild(row);
           }
         });
       })
-      .catch(err => {
-        const table = document.getElementById('file-list').querySelector('tbody');
-        const row = document.createElement('tr');
-        const cell = document.createElement('td');
-        cell.colSpan = 3;
-        cell.textContent = "Error loading file list.";
-        row.appendChild(cell);
-        table.appendChild(row);
+      .catch(error => {
+        console.error('Error fetching files:', error);
       });
   </script>
-
 </body>
 </html>
